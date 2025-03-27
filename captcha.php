@@ -449,7 +449,8 @@ $_SESSION['captcha_target'] = $targetObject;
 $_SESSION['captcha_objects'] = $wordObjects;
 
 // Create instruction text
-$instructionText = "Click on the word '{$targetObject['word']}' in a {$targetObject['shape']}";
+$firstLetterOfWord = strtoupper(substr($targetObject['word'], 0, 1));
+$instructionText = "Click on the word '" . addslashes($firstLetterOfWord) . "' in a " . $targetObject['shape']; 
 $instructionColor = imagecolorallocate($image, 0, 0, 0);
 imagettftext($image, 16, 0, 20, 30, $instructionColor, $font, $instructionText);
 
