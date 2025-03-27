@@ -26,8 +26,8 @@
         }
         /* Prevent text selection and ensure consistent cursor */
         .captcha-image {
-            user-select: none; /* Disable text selection */
-            cursor: pointer;  /* Force pointer cursor */
+            user-select: none !important; /* Disable text selection */
+            cursor: pointer !important;  /* Force pointer cursor */
         }
     </style>
 </head>

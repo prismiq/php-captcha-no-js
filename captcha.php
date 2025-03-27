@@ -227,70 +227,119 @@ function drawWavyLines($image, $width, $height, $count = 7) { // Increased count
 }
 
 // Function to add random characters in the background
-function addRandomCharacters($image, $width, $height, $font, $count = 15) {
-    $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+// Enhanced addRandomCharacters function
+function addRandomCharacters($image, $width, $height, $font, $count = 25) {
+    $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~!@#$%^&*()_+=-`[]{};\':",./<>?';
     $charactersLength = strlen($characters);
-    
+    $possibleFonts = [__DIR__ . '/Arial.ttf', __DIR__ . '/Verdana.ttf', __DIR__ . '/Tahoma.ttf']; // Add more fonts
+    $minSize = 8;
+    $maxSize = 16;
+
     for ($i = 0; $i < $count; $i++) {
         $color = imagecolorallocatealpha(
-            $image, 
-            rand(180, 220), 
-            rand(180, 220), 
-            rand(180, 220),
-            rand(70, 90) // Partially transparent
+            $image,
+            rand(100, 220),
+            rand(100, 220),
+            rand(100, 220),
+            rand(50, 100) // More variation in transparency
         );
-        
-        $x = rand(20, $width - 20);
-        $y = rand(20, $height - 20);
-        $size = rand(8, 14);
-        $angle = rand(-30, 30);
-        
+
+        $x = rand(0, $width);
+        $y = rand(0, $height);
+        $size = rand($minSize, $maxSize);
+        $angle = rand(-45, 45); // Wider angle range
+
+        // Randomly select a font
+        $selectedFont = $possibleFonts[array_rand($possibleFonts)];
+        if (!file_exists($selectedFont)) {
+            $selectedFont = $font; // Fallback to default if not found
+        }
+
         $char = $characters[rand(0, $charactersLength - 1)];
-        
-        imagettftext($image, $size, $angle, $x, $y, $color, $font, $char);
+
+        imagettftext($image, $size, $angle, $x, $y, $color, $selectedFont, $char);
+
+        // Add small, randomly placed dots near the characters
+        for ($j = 0; $j < rand(1, 3); $j++) {
+            $dotColor = imagecolorallocate($image, rand(100, 200), rand(100, 200), rand(100, 200));
+            $dotX = $x + rand(-5, 5);
+            $dotY = $y + rand(-5, 5);
+            imagesetpixel($image, $dotX, $dotY, $dotColor);
+        }
     }
 }
 
-// Function to distort text with slight ripple effect
+// Enhanced applyAdvancedTextDistortion function
 function applyTextDistortion($image, $x, $y, $word, $fontSize, $font, $color) {
-    // Create a temporary image to draw the distorted text
-    $tempWidth = imagettfbbox($fontSize, 0, $font, $word);
-    $width = abs($tempWidth[4] - $tempWidth[0]) + 20;
-    $height = abs($tempWidth[5] - $tempWidth[1]) + 20;
-    
-    // Draw each character with slight variations
     $chars = str_split($word);
     $currentX = $x;
-    
+    $totalWidth = 0;
+    $charData = [];
+    $possibleFonts = [__DIR__ . '/Arial.ttf', __DIR__ . '/Verdana.ttf', __DIR__ . '/Tahoma.ttf'];
+    $minSize = $fontSize - 2;
+    $maxSize = $fontSize + 3;
+
+    // First pass: Calculate original positions and dimensions
     foreach ($chars as $char) {
-        // Add slight vertical variation
-        $offsetY = rand(-2, 2);
-        // Add slight rotation
-        $angle = rand(-8, 8);
-        
-        imagettftext(
-            $image,
-            $fontSize,
-            $angle,
-            $currentX,
-            $y + $offsetY,
-            $color,
-            $font,
-            $char
-        );
-        
-        // Advance horizontally with slight variation
-        $charWidth = imagettfbbox($fontSize, 0, $font, $char);
-        $currentX += abs($charWidth[4] - $charWidth[0]) + rand(-1, 1);
+        $charFont = $possibleFonts[array_rand($possibleFonts)];
+        if (!file_exists($charFont)) {
+            $charFont = $font;
+        }
+        $charSize = rand($minSize, $maxSize);
+        $angle = rand(-10, 10);
+        $box = imagettfbbox($charSize, $angle, $charFont, $char);
+        $charWidth = abs($box[4] - $box[0]);
+        $charHeight = abs($box[5] - $box[1]);
+        $charData[] = [
+            'char' => $char,
+            'font' => $charFont,
+            'size' => $charSize,
+            'angle' => $angle,
+            'width' => $charWidth,
+            'height' => $charHeight,
+            'originalX' => $currentX,
+            'originalY' => $y + rand(-2, 2) // Initial vertical variation
+        ];
+        $currentX += $charWidth + rand(-2, 3);
+        $totalWidth = $currentX - $x;
     }
-    
-    // Return the approximate dimensions of the rendered text
-    return [
+
+    // Apply distortion based on total width and character positions
+    $amplitudeY = rand(2, 4);
+    $periodX = rand(10, 20);
+    $phaseY = rand(0, 314) / 100;
+
+    $distortedBounds = [
         'x' => $x,
         'y' => $y - $fontSize,
-        'width' => $currentX - $x,
-        'height' => $fontSize * 1.5
+        'width' => $totalWidth,
+        'height' => 0 // Will be updated
     ];
+    $maxHeight = 0;
+
+    // Second pass: Draw with distortion
+    foreach ($charData as $data) {
+        $offsetY = $amplitudeY * sin(2 * M_PI * $data['originalX'] / $periodX + $phaseY);
+        $finalY = $data['originalY'] + $offsetY;
+
+        imagettftext(
+            $image,
+            $data['size'],
+            $data['angle'],
+            $data['originalX'],
+            $finalY,
+            $color,
+            $data['font'],
+            $data['char']
+        );
+
+        $distortedBounds['y'] = min($distortedBounds['y'], $finalY - $data['size']);
+        $maxHeight = max($maxHeight, $finalY - $distortedBounds['y']);
+    }
+
+    $distortedBounds['height'] = $maxHeight * 1.2; // Add some padding
+
+    return $distortedBounds;
 }
 
 // Create word-shape combinations with duplicates
@@ -425,10 +474,10 @@ $wordObjects = [];
 foreach ($displayCombinations as $combination) {
     $word = $combination['word'];
     $shapeType = $combination['shape'];
-    
+
     // Get text dimensions
     $textDim = getTextDimensions($word, $fontSize, $font);
-    
+
     // Find a non-overlapping position
     $attempts = 0;
     $maxAttempts = 50;
@@ -443,11 +492,11 @@ foreach ($displayCombinations as $combination) {
         ];
         $attempts++;
     } while ($attempts < $maxAttempts && positionsOverlap($positions, $position));
-    
+
     if ($attempts >= $maxAttempts) {
         continue; // Skip this word if we can't find a good position
     }
-    
+
     // Choose a random color for the shape
     $colorVal = $shapeColors[array_rand($shapeColors)];
     $color = imagecolorallocate($image, 
@@ -455,11 +504,11 @@ foreach ($displayCombinations as $combination) {
         ($colorVal >> 8) & 0xFF,
         $colorVal & 0xFF
     );
-    
+
     // Draw the text with distortion instead of simple text rendering
     $textColor = imagecolorallocate($image, 0, 0, 0);
     $textDimensions = applyTextDistortion($image, $x, $y, $word, $fontSize, $font, $textColor);
-    
+
     // Draw the shape around the text
     $shapeBounds = null;
     if ($shapeType === 'circle') {
@@ -469,7 +518,7 @@ foreach ($displayCombinations as $combination) {
     } else { // square
         $shapeBounds = drawSquare($image, $x, $y - $textDim['height'], $textDimensions['width'], $textDim['height'], $color);
     }
-    
+
     // Store the position
     $positions[] = [
         'x' => $x,
@@ -477,7 +526,7 @@ foreach ($displayCombinations as $combination) {
         'width' => $textDim['width'],
         'height' => $textDim['height']
     ];
-    
+
     // Store the word object
     $wordObjects[] = [
         'word' => $word,
