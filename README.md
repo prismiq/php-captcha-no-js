@@ -1,7 +1,8 @@
-"""
-# CAPTCHA System Documentation
+# CAPTCHA (NO-JS) System Documentation
 
 This project implements a CAPTCHA (Completely Automated Public Turing test to tell Computers and Humans Apart) system designed to verify that the user interacting with the system is a human and not an automated bot. This implementation is entirely server-side and does not rely on JavaScript, ensuring compatibility with environments where JavaScript is disabled.
+
+![Example](https://github.com/user-attachments/assets/015a5b9d-bf63-495e-906e-554436de0214)
 
 ## Key Features
 
@@ -79,4 +80,6 @@ It ensures that the click coordinates match either the text or the shape area of
 ## Notes
 
 Licence: https://opensource.org/license/GPL-3.0
+
 Contact me for commercial usage on any application.
+
