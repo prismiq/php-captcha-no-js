@@ -6,16 +6,17 @@ This project implements a CAPTCHA (Completely Automated Public Turing test to te
 
 ## Key Features
 
-- **Word and Shape-Based Challenges**: Users are instructed to click on a specific word enclosed within a shape (e.g., circle, square, or star) displayed on an image.
+- **Word and Shape-Based Challenges**: Users are instructed to click on a specific word enclosed within a shape (e.g., circle, square, or triangle) displayed on an image.
 - **No JavaScript Dependency**: The CAPTCHA system is fully functional without requiring JavaScript, making it accessible for users with JavaScript disabled.
-- **Dynamic Image Generation**: The CAPTCHA image is dynamically generated with randomized words, shapes, and background noise to prevent automated recognition.
+- **Enhanced Image Generation**: The CAPTCHA image is dynamically generated with randomized words, shapes, colors, and background patterns to prevent automated recognition.
 - **Session-Based Validation**: The system uses PHP sessions to securely store the target word and shape for validation.
+- **Customizable Difficulty**: Administrators can configure the complexity of the CAPTCHA by adjusting the number of words, shapes, and noise elements.
 
 ## How It Works
 
 1. **Image Generation**:
-    - The `captcha.php` script generates an image containing random words enclosed in various shapes (circle, square, star).
-    - Background noise, geometric shapes, and random characters are added to make the CAPTCHA harder for bots to solve.
+    - The `captcha.php` script generates an image containing random words enclosed in various shapes (circle, square, triangle).
+    - Background patterns, geometric shapes, and random characters are added to make the CAPTCHA harder for bots to solve.
     - A specific word and shape combination is selected as the target, and the user is instructed to click on it.
 
 2. **User Interaction**:
@@ -44,25 +45,27 @@ The user is instructed to click on the word and shape specified in the dynamical
 The `validate.php` script processes the user's click:
 
 ```php
-if ($clickedOnText || $clickedOnShape) {
+if ($clickedOnText && $clickedOnShape) {
      header('Location: index.php?success=' . urlencode("CAPTCHA validation successful!"));
 } else {
-     header('Location: index.php?error=' . urlencode("CAPTCHA validation failed. You didn't click on the correct word."));
+     header('Location: index.php?error=' . urlencode("CAPTCHA validation failed. You didn't click on the correct word or shape."));
 }
 ```
 
-It ensures that the click coordinates match either the text or the shape area of the target word.
+It ensures that the click coordinates match both the text and the shape area of the target word.
 
 ## Accessibility
 
 - **No JavaScript Required**: The system works entirely on server-side logic, ensuring compatibility with browsers that have JavaScript disabled.
 - **User-Friendly Design**: The CAPTCHA image includes clear instructions and a visually distinct target to minimize user frustration.
+- **High Contrast Mode**: The system supports high-contrast images for improved accessibility.
 
 ## Security Considerations
 
 - **Randomized Challenges**: Each CAPTCHA image is unique, making it difficult for bots to predict or reuse solutions.
 - **Click Validation**: The system validates clicks against both the text and shape areas to ensure accuracy.
 - **Session Security**: Target data is stored in PHP sessions to prevent tampering.
+- **Rate Limiting**: The system can be configured to limit repeated attempts from the same user or IP address.
 
 ## Example Scenarios
 
@@ -72,14 +75,15 @@ It ensures that the click coordinates match either the text or the shape area of
 
 2. **Failed Validation**:
     - The user clicks on an incorrect area.
-    - The system redirects to the `index.php` page with an error message: `CAPTCHA validation failed. You didn't click on the correct word.`
+    - The system redirects to the `index.php` page with an error message: `CAPTCHA validation failed. You didn't click on the correct word or shape.`
 
 3. **Error Handling**:
     - If the click coordinates are not received, the system displays an error: `Error: Click coordinates not received.`
 
 ## Notes
 
-Licence: https://opensource.org/license/GPL-3.0
+License: https://opensource.org/license/GPL-3.0
 
 Contact me for commercial usage on any application.
+
 
