@@ -1,4 +1,26 @@
 <?php
+/* * CAPTCHA Generation Script
+ * This script generates a CAPTCHA image with random words and shapes.
+ * It uses the GD library to create the image and add various effects.
+ * The generated image is served as a PNG file.
+ * 
+ * Created By: Jason Parker
+ * Website: http://www.weareprismic.com
+ * Copyright (c) 2025
+ * https://github.com/prismiq/php-captcha-no-js
+ * 
+ * License: MIT
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * Commercial use is not allowed without permission.
+ * 
+ * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+ * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 // Enable error reporting for debugging
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
