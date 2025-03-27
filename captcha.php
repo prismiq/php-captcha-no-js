@@ -76,7 +76,7 @@ for ($i = 0; $i < 100; $i++) {
 }
 
 // Function to draw random geometric shapes in the background
-function drawRandomGeometricShapes($image, $width, $height, $count = 15) {
+function drawRandomGeometricShapes1($image, $width, $height, $count = 15) {
     for ($i = 0; $i < $count; $i++) {
         // Use very light colors for the background shapes
         $color = imagecolorallocatealpha(
@@ -128,44 +128,94 @@ function drawRandomGeometricShapes($image, $width, $height, $count = 15) {
     }
 }
 
+function drawRandomGeometricShapes($image, $width, $height, $count = 20) { // Increased count
+    for ($i = 0; $i < $count; $i++) {
+        $color = imagecolorallocatealpha(
+            $image,
+            rand(200, 240),
+            rand(200, 240),
+            rand(200, 240),
+            rand(50, 100) // More transparency
+        );
+
+        $x = rand(0, $width);
+        $y = rand(0, $height);
+        $size = rand(10, 50); // Smaller sizes
+
+        $shapeType = rand(0, 3);
+        switch ($shapeType) {
+            case 0: // Circle
+                imagefilledellipse($image, $x, $y, $size, $size, $color);
+                break;
+            case 1: // Rectangle
+                imagefilledrectangle(
+                    $image,
+                    $x,
+                    $y,
+                    $x + $size,
+                    $y + rand($size * 0.5, $size * 0.8), // Vary height
+                    $color
+                );
+                break;
+            case 2: // Triangle
+                $points = [
+                    $x, $y + $size,
+                    $x + $size, $y + $size,
+                    $x + $size/2, $y
+                ];
+                imagefilledpolygon($image, $points, 3, $color);
+                break;
+            case 3: // Diamond
+                $points = [
+                    $x, $y + $size/2,
+                    $x + $size/2, $y,
+                    $x + $size, $y + $size/2,
+                    $x + $size/2, $y + $size
+                ];
+                imagefilledpolygon($image, $points, 4, $color);
+                break;
+        }
+    }
+}
+
 // Function to add dots and speckles
-function addDotsAndSpeckles($image, $width, $height, $count = 200) {
+function addDotsAndSpeckles($image, $width, $height, $count = 300) { // Increased count
     for ($i = 0; $i < $count; $i++) {
         $color = imagecolorallocate(
-            $image, 
-            rand(150, 230), 
-            rand(150, 230), 
+            $image,
+            rand(150, 230),
+            rand(150, 230),
             rand(150, 230)
         );
         $x = rand(0, $width);
         $y = rand(0, $height);
-        $size = rand(1, 3);
-        
-        imagefilledellipse($image, $x, $y, $size, $size, $color);
+        $size = rand(1, 2); // Smaller size
+
+        imagesetpixel($image, $x, $y, $color); // Use imagesetpixel for individual dots
     }
 }
 
 // Function to draw wavy lines across the image
-function drawWavyLines($image, $width, $height, $count = 5) {
+function drawWavyLines($image, $width, $height, $count = 7) { // Increased count
     for ($i = 0; $i < $count; $i++) {
         $color = imagecolorallocatealpha(
-            $image, 
-            rand(100, 200), 
-            rand(100, 200), 
+            $image,
             rand(100, 200),
-            rand(70, 90) // Partially transparent
+            rand(100, 200),
+            rand(100, 200),
+            rand(50, 80) // More transparency
         );
-        
-        $amplitude = rand(10, 20);
-        $frequency = rand(3, 8) / 100;
-        $phase = rand(0, 314) / 100; // Random phase (0 to pi)
-        
+
+        $amplitude = rand(5, 15); // Reduced amplitude
+        $frequency = rand(4, 9) / 100;
+        $phase = rand(0, 314) / 100;
+
         $startY = rand(0, $height);
-        
+
         $prevX = 0;
         $prevY = $startY;
-        
-        for ($x = 0; $x < $width; $x += 5) {
+
+        for ($x = 0; $x < $width; $x += 3) { // Smaller step
             $y = $startY + $amplitude * sin($frequency * $x + $phase);
             if ($x > 0) {
                 imageline($image, $prevX, $prevY, $x, $y, $color);
@@ -449,8 +499,20 @@ $_SESSION['captcha_target'] = $targetObject;
 $_SESSION['captcha_objects'] = $wordObjects;
 
 // Create instruction text
-$firstLetterOfWord = strtoupper(substr($targetObject['word'], 0, 1));
-$instructionText = "Click on the word '" . addslashes($firstLetterOfWord) . "' in a " . $targetObject['shape']; 
+$instructionType = rand(0, 2);
+switch ($instructionType) {
+    case 0:
+        $instructionText = "Click on the word starting with '" . strtoupper(substr($targetObject['word'], 0, 1)) . "'";
+        break;
+    case 1:
+        $instructionText = "Click on the word ending with '" . strtolower(substr($targetObject['word'], -1)) . "'";
+        break;
+    case 2:
+        $wordLength = strlen($targetObject['word']);
+        $instructionText = "Click on the word with " . $wordLength . " letters";
+        break;
+}
+$instructionText .= " in a " . $targetObject['shape'];
 $instructionColor = imagecolorallocate($image, 0, 0, 0);
 imagettftext($image, 16, 0, 20, 30, $instructionColor, $font, $instructionText);
 
