@@ -178,45 +178,79 @@ function drawRandomGeometricShapes($image, $width, $height, $count = 20) { // In
     }
 }
 
-// Function to add dots and speckles
-function addDotsAndSpeckles($image, $width, $height, $count = 300) { // Increased count
+function addDotsAndSpeckles($image, $width, $height, $count = 500) {
     for ($i = 0; $i < $count; $i++) {
-        $color = imagecolorallocate(
-            $image,
-            rand(150, 230),
-            rand(150, 230),
-            rand(150, 230)
-        );
+        // Vary color based on position
+        $baseColor = rand(100, 200);
+        $red = clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
+        $green = clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
+        $blue = clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
+        $alpha = rand(0, 127); // Ensure alpha is within the valid range
+        $color = imagecolorallocatealpha($image, $red, $green, $blue, $alpha); // Add transparency variation
+
         $x = rand(0, $width);
         $y = rand(0, $height);
-        $size = rand(1, 2); // Smaller size
+        $size = rand(1, 3); // Slightly larger dots sometimes
 
-        imagesetpixel($image, $x, $y, $color); // Use imagesetpixel for individual dots
+        // Draw small shapes instead of just pixels
+        $shapeType = rand(0, 2);
+        switch ($shapeType) {
+            case 0: // Pixel
+                imagesetpixel($image, $x, $y, $color);
+                break;
+            case 1: // Tiny line
+                imageline($image, $x, $y, $x + rand(-1, 1), $y + rand(-1, 1), $color);
+                break;
+            case 2: // Tiny rectangle
+                imagefilledrectangle($image, $x, $y, $x + 1, $y + 1, $color);
+                break;
+        }
     }
 }
 
-// Function to draw wavy lines across the image
-function drawWavyLines($image, $width, $height, $count = 7) { // Increased count
+// More advanced drawWavyLines function (Corrected)
+function drawWavyLines($image, $width, $height, $count = 10) {
     for ($i = 0; $i < $count; $i++) {
-        $color = imagecolorallocatealpha(
+        // Vary color along the line
+        $startColorIndex = imagecolorallocatealpha(
             $image,
-            rand(100, 200),
-            rand(100, 200),
-            rand(100, 200),
-            rand(50, 80) // More transparency
+            rand(80, 180),
+            rand(80, 180),
+            rand(80, 180),
+            rand(40, 70)
+        );
+        $endColorIndex = imagecolorallocatealpha(
+            $image,
+            rand(120, 220),
+            rand(120, 220),
+            rand(120, 220),
+            rand(60, 90)
         );
 
-        $amplitude = rand(5, 15); // Reduced amplitude
-        $frequency = rand(4, 9) / 100;
-        $phase = rand(0, 314) / 100;
-
+        $amplitudeY = rand(8, 18);
+        $frequencyX = rand(5, 12) / 100;
+        $phaseY = rand(0, 314) / 100;
         $startY = rand(0, $height);
+        $offsetY = rand(-10, 10); // Introduce vertical offset for each line
 
         $prevX = 0;
-        $prevY = $startY;
+        $prevY = $startY + $offsetY;
 
-        for ($x = 0; $x < $width; $x += 3) { // Smaller step
-            $y = $startY + $amplitude * sin($frequency * $x + $phase);
+        for ($x = 0; $x < $width; $x += 2) {
+            $y = $startY + $offsetY + $amplitudeY * sin($frequencyX * $x + $phaseY);
+
+            // Interpolate color along the line
+            $ratio = $x / $width;
+            $startColor = imagecolorsforindex($image, $startColorIndex);
+            $endColor = imagecolorsforindex($image, $endColorIndex);
+
+            $r = (int) ($startColor['red'] + ($endColor['red'] - $startColor['red']) * $ratio);
+            $g = (int) ($startColor['green'] + ($endColor['green'] - $startColor['green']) * $ratio);
+            $b = (int) ($startColor['blue'] + ($endColor['blue'] - $startColor['blue']) * $ratio);
+            $a = (int) ($startColor['alpha'] + ($endColor['alpha'] - $startColor['alpha']) * $ratio);
+
+            $color = imagecolorallocatealpha($image, $r, $g, $b, $a);
+
             if ($x > 0) {
                 imageline($image, $prevX, $prevY, $x, $y, $color);
             }
@@ -224,6 +258,11 @@ function drawWavyLines($image, $width, $height, $count = 7) { // Increased count
             $prevY = $y;
         }
     }
+}
+
+// Helper function to keep values within 0-255
+function clamp($value, $min, $max) {
+    return max($min, min($max, $value));
 }
 
 // Function to add random characters in the background
