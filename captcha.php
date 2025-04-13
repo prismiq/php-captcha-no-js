@@ -1,619 +1,757 @@
 <?php
-/* * CAPTCHA Generation Script
- * This script generates a CAPTCHA image with random words and shapes.
- * It uses the GD library to create the image and add various effects.
- * The generated image is served as a PNG file.
- * 
- * Created By: Jason Parker
- * Website: http://www.weareprismic.com
- * Copyright (c) 2025
- * https://github.com/prismiq/php-captcha-no-js
- * 
- * License: MIT
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * Commercial use is not allowed without permission.
- * 
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
- * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+/**
+ * Captcha Class
+ *
+ * A flexible CAPTCHA generation class that can output PNG images or base64 encoded images.
+ * Supports customization of various parameters like dimensions, colours, font size, etc.
+ *
+ * @author Jason Parker (weareprismic.com)
+ * @copyright 2025
+ * @license MIT
  */
+class Captcha
+{
+    // Default configuration
+    private $config = [
+        'imageWidth' => 600,
+        'imageHeight' => 250,
+        'backgroundColor' => 0xFFFFFF,  // White background
+        'font' => null,  // Will be set to Arial.ttf by default
+        'fontSize' => 20,
+        'numShapes' => 5,
+        'spaceBetweenObjects' => 30,
+        'footerText' => 'http://www.example.com/captcha',
+        'shapeColors' => [0xFF, 0x8000, 0xFF0000, 0x800080, 0xFF8C00],  // Blue, Green, Red, Purple, Orange
+        'words' => [
+            'Apple', 'Banana', 'Orange', 'Grape', 'Kiwi', 'Lemon', 'Melon', 'Cherry', 'Peach', 'Mango',
+            'Strawberry', 'Pineapple', 'Blueberry', 'Watermelon', 'Raspberry', 'Blackberry', 'Plum',
+            'Apricot', 'Coconut', 'Avocado', 'Pear', 'Papaya', 'Guava', 'Fig', 'Lime', 'Tangerine',
+            'Pomegranate', 'Cantaloupe', 'Honeydew', 'Dragonfruit', 'Lychee', 'Passionfruit',
+            'Jackfruit', 'Durian', 'Starfruit', 'Persimmon', 'Quince', 'Mulberry', 'Elderberry',
+            'Gooseberry', 'Currant', 'Tamarind', 'Sapodilla', 'Longan', 'Soursop', 'Cherimoya',
+            'Jujube', 'Salak', 'Rambutan', 'Mangosteen', 'Langsat', 'Duku', 'Bacuri', 'Cupuacu',
+            'Açaí', 'Camu Camu', 'Cacoa', 'Bacaba', 'Buriti', 'Brazil Nut', 'Cocona', 'Guaraná',
+            'Jabuticaba', 'Cabeludinha', 'Camu Camu', 'Pitangueira', 'Cabeludinha', 'Bacuri'
+        ],
+        'shapeTypes' => ['circle', 'square', 'star']
+    ];
 
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+    // Generated image resource
+    private $image;
 
-session_start(); // Ensure session is started
+    // Target object and all objects for validation
+    private $targetObject;
 
-// Configuration
-$imageWidth = 600;
-$imageHeight = 250;
-$backgroundColor = 0xFFFFFF;
-$font = __DIR__ . '/Arial.ttf';
-$fontSize = 20;
-$words = ['Apple', 'Banana', 'Orange', 'Grape', 'Kiwi', 'Lemon', 'Melon', 'Cherry', 'Peach', 'Mango', 
-          'Strawberry', 'Pineapple', 'Blueberry', 'Watermelon', 'Raspberry', 'Blackberry', 'Plum', 
-          'Apricot', 'Coconut', 'Avocado', 'Pear', 'Papaya', 'Guava', 'Fig', 'Lime', 'Tangerine',
-          'Pomegranate', 'Cantaloupe', 'Honeydew', 'Dragonfruit', 'Lychee', 'Passionfruit',
-          'Jackfruit', 'Durian', 'Starfruit', 'Persimmon', 'Quince', 'Mulberry', 'Elderberry',
-          'Gooseberry', 'Currant', 'Tamarind', 'Sapodilla', 'Longan', 'Soursop', 'Cherimoya',
-          'Jujube', 'Salak', 'Rambutan', 'Mangosteen', 'Langsat', 'Duku', 'Bacuri', 'Cupuacu',
-          'Açaí', 'Camu Camu', 'Cacoa', 'Bacaba', 'Buriti', 'Brazil Nut', 'Cocona', 'Guaraná',
-          'Jabuticaba', 'Cabeludinha', 'Camu Camu', 'Pitangueira', 'Cabeludinha', 'Bacuri'];
-$shapeTypes = ['circle', 'square', 'star'];
-$shapeColors = [0x0000FF, 0x008000, 0xFF0000, 0x800080, 0xFF8C00];
+    private $allObjects = [];
 
-// Create the image
-$image = imagecreatetruecolor($imageWidth, $imageHeight);
-if (!$image) {
-    die("Error: Failed to create image. GD library issue or memory problem?");
-}
+    private $instructionText;
 
-// Check if font file exists
-if (!file_exists($font)) {
-    die("Error: Font file not found at: " . $font);
-}
+    /**
+     * Constructor
+     *
+     * @param array $config Optional configuration array to override defaults
+     */
+    public function __construct($config = [])
+    {
+        // Start session if not started
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
 
-// Set background color
-$backgroundColor = imagecolorallocate($image, 
-    ($backgroundColor >> 16) & 0xFF,
-    ($backgroundColor >> 8) & 0xFF,
-    $backgroundColor & 0xFF
-);
-imagefill($image, 0, 0, $backgroundColor);
+        // Set default font path if not provided
+        if (!isset($config['font'])) {
+            $config['font'] = __DIR__ . '/Arial.ttf';
+        }
 
-// Add some noise/patterns to background for added security
-for ($i = 0; $i < 100; $i++) {
-    $noiseColor = imagecolorallocate($image, rand(180, 255), rand(180, 255), rand(180, 255));
-    $x1 = rand(0, $imageWidth);
-    $y1 = rand(0, $imageHeight);
-    $x2 = $x1 + rand(-20, 20);
-    $y2 = $y1 + rand(-20, 20);
-    imageline($image, $x1, $y1, $x2, $y2, $noiseColor);
-}
+        // Merge provided config with defaults
+        $this->config = array_merge($this->config, $config);
 
-// Function to draw random geometric shapes in the background
-function drawRandomGeometricShapes1($image, $width, $height, $count = 15) {
-    for ($i = 0; $i < $count; $i++) {
-        // Use very light colors for the background shapes
-        $color = imagecolorallocatealpha(
-            $image, 
-            rand(200, 240), 
-            rand(200, 240), 
-            rand(200, 240),
-            rand(70, 110) // Higher alpha for transparency
-        );
+        // Validate font file
+        if (!file_exists($this->config['font'])) {
+            throw new Exception('Font file not found: ' . $this->config['font']);
+        }
+    }
+    
+    /**
+     * Create CAPTCHA with custom parameters
+     *
+     * @param int $width Image width
+     * @param int $height Image height
+     * @param string $bgColor Background color (hex format with 0x prefix)
+     * @param int $numShapes Number of shapes to generate
+     * @param int $spaceBetween Space between objects
+     * @param int $fontSize Font size for text
+     * @param string $footerText Footer text (usually a website URL)
+     * @return void
+     */
+    public function create($width, $height, $bgColor, $numShapes, $spaceBetween, $fontSize, $footerText)
+    {
+        // Update configuration with the provided parameters
+        $this->config['imageWidth'] = $width;
+        $this->config['imageHeight'] = $height;
+        $this->config['backgroundColor'] = $bgColor;
+        $this->config['numShapes'] = $numShapes;
+        $this->config['spaceBetweenObjects'] = $spaceBetween;
+        $this->config['fontSize'] = $fontSize;
+        $this->config['footerText'] = $footerText;
         
-        $x = rand(0, $width);
-        $y = rand(0, $height);
-        $size = rand(20, 60);
-        
-        // Select a random shape type
-        $shapeType = rand(0, 3);
-        switch ($shapeType) {
-            case 0: // Circle
-                imagefilledellipse($image, $x, $y, $size, $size, $color);
-                break;
-            case 1: // Rectangle
-                imagefilledrectangle(
-                    $image, 
-                    $x, 
-                    $y, 
-                    $x + $size, 
-                    $y + $size * 0.7, 
-                    $color
-                );
-                break;
-            case 2: // Triangle
-                $points = [
-                    $x, $y + $size,
-                    $x + $size, $y + $size,
-                    $x + $size/2, $y
-                ];
-                imagefilledpolygon($image, $points, 3, $color);
-                break;
-            case 3: // Diamond
-                $points = [
-                    $x, $y + $size/2,
-                    $x + $size/2, $y,
-                    $x + $size, $y + $size/2,
-                    $x + $size/2, $y + $size
-                ];
-                imagefilledpolygon($image, $points, 4, $color);
-                break;
-        }
+        // Generate the CAPTCHA
+        $this->generate();
     }
-}
 
-function drawRandomGeometricShapes($image, $width, $height, $count = 20) { // Increased count
-    for ($i = 0; $i < $count; $i++) {
-        $color = imagecolorallocatealpha(
-            $image,
-            rand(200, 240),
-            rand(200, 240),
-            rand(200, 240),
-            rand(50, 100) // More transparency
-        );
-
-        $x = rand(0, $width);
-        $y = rand(0, $height);
-        $size = rand(10, 50); // Smaller sizes
-
-        $shapeType = rand(0, 3);
-        switch ($shapeType) {
-            case 0: // Circle
-                imagefilledellipse($image, $x, $y, $size, $size, $color);
-                break;
-            case 1: // Rectangle
-                imagefilledrectangle(
-                    $image,
-                    $x,
-                    $y,
-                    $x + $size,
-                    $y + rand($size * 0.5, $size * 0.8), // Vary height
-                    $color
-                );
-                break;
-            case 2: // Triangle
-                $points = [
-                    $x, $y + $size,
-                    $x + $size, $y + $size,
-                    $x + $size/2, $y
-                ];
-                imagefilledpolygon($image, $points, 3, $color);
-                break;
-            case 3: // Diamond
-                $points = [
-                    $x, $y + $size/2,
-                    $x + $size/2, $y,
-                    $x + $size, $y + $size/2,
-                    $x + $size/2, $y + $size
-                ];
-                imagefilledpolygon($image, $points, 4, $color);
-                break;
+    /**
+     * Generate the CAPTCHA image
+     *
+     * @return void
+     */
+    public function generate()
+    {
+        // Create the image
+        $this->image = imagecreatetruecolor($this->config['imageWidth'], $this->config['imageHeight']);
+        if (!$this->image) {
+            throw new Exception('Failed to create image. GD library issue or memory problem?');
         }
+
+        // Set background colour
+        // Convert hex string to integer if needed
+        $bgColorValue = is_numeric($this->config['backgroundColor']) ? 
+            intval($this->config['backgroundColor']) : 
+            hexdec(str_replace('0x', '', $this->config['backgroundColor']));
+            
+        $bgColor = imagecolorallocate($this->image,
+            ($bgColorValue >> 16) & 0xFF,
+            ($bgColorValue >> 8) & 0xFF,
+            $bgColorValue & 0xFF);
+        imagefill($this->image, 0, 0, $bgColor);
+
+        // Add background effects
+        $this->addBackgroundEffects();
+
+        // Create word-shape combinations
+        $this->createWordShapeCombinations();
+
+        // Add instruction text
+        $this->addInstructionText();
+
+        // Add footer text
+        $this->addFooterText();
     }
-}
 
-function addDotsAndSpeckles($image, $width, $height, $count = 500) {
-    for ($i = 0; $i < $count; $i++) {
-        // Vary color based on position
-        $baseColor = rand(100, 200);
-        $red = clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
-        $green = clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
-        $blue = clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
-        $alpha = rand(0, 127); // Ensure alpha is within the valid range
-        $color = imagecolorallocatealpha($image, $red, $green, $blue, $alpha); // Add transparency variation
-
-        $x = rand(0, $width);
-        $y = rand(0, $height);
-        $size = rand(1, 3); // Slightly larger dots sometimes
-
-        // Draw small shapes instead of just pixels
-        $shapeType = rand(0, 2);
-        switch ($shapeType) {
-            case 0: // Pixel
-                imagesetpixel($image, $x, $y, $color);
-                break;
-            case 1: // Tiny line
-                imageline($image, $x, $y, $x + rand(-1, 1), $y + rand(-1, 1), $color);
-                break;
-            case 2: // Tiny rectangle
-                imagefilledrectangle($image, $x, $y, $x + 1, $y + 1, $color);
-                break;
+    /**
+     * Add various background effects to the image
+     *
+     * @return void
+     */
+    private function addBackgroundEffects()
+    {
+        // Add noise/patterns
+        for ($i = 0; $i < 100; $i++) {
+            $noiseColor = imagecolorallocate($this->image, rand(180, 255), rand(180, 255), rand(180, 255));
+            $x1 = rand(0, $this->config['imageWidth']);
+            $y1 = rand(0, $this->config['imageHeight']);
+            $x2 = $x1 + rand(-20, 20);
+            $y2 = $y1 + rand(-20, 20);
+            imageline($this->image, $x1, $y1, $x2, $y2, $noiseColor);
         }
+
+        $this->drawRandomGeometricShapes();
+        $this->addDotsAndSpeckles();
+        $this->drawWavyLines();
+        $this->addRandomCharacters();
     }
-}
 
-// More advanced drawWavyLines function (Corrected)
-function drawWavyLines($image, $width, $height, $count = 10) {
-    for ($i = 0; $i < $count; $i++) {
-        // Vary color along the line
-        $startColorIndex = imagecolorallocatealpha(
-            $image,
-            rand(80, 180),
-            rand(80, 180),
-            rand(80, 180),
-            rand(40, 70)
-        );
-        $endColorIndex = imagecolorallocatealpha(
-            $image,
-            rand(120, 220),
-            rand(120, 220),
-            rand(120, 220),
-            rand(60, 90)
-        );
+    /**
+     * Draw random geometric shapes in the background
+     *
+     * @return void
+     */
+    private function drawRandomGeometricShapes()
+    {
+        for ($i = 0; $i < 15; $i++) {
+            $color = imagecolorallocatealpha(
+                $this->image,
+                rand(200, 240),
+                rand(200, 240),
+                rand(200, 240),
+                rand(70, 110)
+            );
 
-        $amplitudeY = rand(8, 18);
-        $frequencyX = rand(5, 12) / 100;
-        $phaseY = rand(0, 314) / 100;
-        $startY = rand(0, $height);
-        $offsetY = rand(-10, 10); // Introduce vertical offset for each line
+            $x = rand(0, $this->config['imageWidth']);
+            $y = rand(0, $this->config['imageHeight']);
+            $size = rand(20, 60);
 
-        $prevX = 0;
-        $prevY = $startY + $offsetY;
-
-        for ($x = 0; $x < $width; $x += 2) {
-            $y = $startY + $offsetY + $amplitudeY * sin($frequencyX * $x + $phaseY);
-
-            // Interpolate color along the line
-            $ratio = $x / $width;
-            $startColor = imagecolorsforindex($image, $startColorIndex);
-            $endColor = imagecolorsforindex($image, $endColorIndex);
-
-            $r = (int) ($startColor['red'] + ($endColor['red'] - $startColor['red']) * $ratio);
-            $g = (int) ($startColor['green'] + ($endColor['green'] - $startColor['green']) * $ratio);
-            $b = (int) ($startColor['blue'] + ($endColor['blue'] - $startColor['blue']) * $ratio);
-            $a = (int) ($startColor['alpha'] + ($endColor['alpha'] - $startColor['alpha']) * $ratio);
-
-            $color = imagecolorallocatealpha($image, $r, $g, $b, $a);
-
-            if ($x > 0) {
-                imageline($image, $prevX, $prevY, $x, $y, $color);
+            $shapeType = rand(0, 3);
+            switch ($shapeType) {
+                case 0:  // Circle
+                    imagefilledellipse($this->image, $x, $y, $size, $size, $color);
+                    break;
+                case 1:  // Rectangle
+                    imagefilledrectangle(
+                        $this->image,
+                        $x,
+                        $y,
+                        $x + $size,
+                        $y + (int)($size * 0.7),
+                        $color
+                    );
+                    break;
+                case 2:  // Triangle
+                    $points = [
+                        (int)$x, (int)($y + $size),
+                        (int)($x + $size), (int)($y + $size),
+                        (int)($x + $size / 2), (int)$y
+                    ];
+                    imagefilledpolygon($this->image, $points, $color);
+                    break;
+                case 3:  // Diamond
+                    $points = [
+                        (int)$x, (int)($y + $size / 2),
+                        (int)($x + $size / 2), (int)$y,
+                        (int)($x + $size), (int)($y + $size / 2),
+                        (int)($x + $size / 2), (int)($y + $size)
+                    ];
+                    imagefilledpolygon($this->image, $points, $color);
+                    break;
             }
-            $prevX = $x;
-            $prevY = $y;
         }
     }
-}
 
-// Helper function to keep values within 0-255
-function clamp($value, $min, $max) {
-    return max($min, min($max, $value));
-}
+    /**
+     * Add dots and speckles to the background
+     *
+     * @return void
+     */
+    private function addDotsAndSpeckles()
+    {
+        for ($i = 0; $i < 500; $i++) {
+            $baseColor = rand(100, 200);
+            $red = $this->clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
+            $green = $this->clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
+            $blue = $this->clamp(rand($baseColor - 30, $baseColor + 30), 0, 255);
+            $alpha = rand(0, 127);
+            $color = imagecolorallocatealpha($this->image, $red, $green, $blue, $alpha);
 
-// Function to add random characters in the background
-// Enhanced addRandomCharacters function
-function addRandomCharacters($image, $width, $height, $font, $count = 25) {
-    $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~!@#$%^&*()_+=-`[]{};\':",./<>?';
-    $charactersLength = strlen($characters);
-    $possibleFonts = [__DIR__ . '/Arial.ttf', __DIR__ . '/Verdana.ttf', __DIR__ . '/Tahoma.ttf']; // Add more fonts
-    $minSize = 8;
-    $maxSize = 16;
+            $x = rand(0, $this->config['imageWidth']);
+            $y = rand(0, $this->config['imageHeight']);
+            $size = rand(1, 3);
 
-    for ($i = 0; $i < $count; $i++) {
-        $color = imagecolorallocatealpha(
-            $image,
-            rand(100, 220),
-            rand(100, 220),
-            rand(100, 220),
-            rand(50, 100) // More variation in transparency
-        );
-
-        $x = rand(0, $width);
-        $y = rand(0, $height);
-        $size = rand($minSize, $maxSize);
-        $angle = rand(-45, 45); // Wider angle range
-
-        // Randomly select a font
-        $selectedFont = $possibleFonts[array_rand($possibleFonts)];
-        if (!file_exists($selectedFont)) {
-            $selectedFont = $font; // Fallback to default if not found
-        }
-
-        $char = $characters[rand(0, $charactersLength - 1)];
-
-        imagettftext($image, $size, $angle, $x, $y, $color, $selectedFont, $char);
-
-        // Add small, randomly placed dots near the characters
-        for ($j = 0; $j < rand(1, 3); $j++) {
-            $dotColor = imagecolorallocate($image, rand(100, 200), rand(100, 200), rand(100, 200));
-            $dotX = $x + rand(-5, 5);
-            $dotY = $y + rand(-5, 5);
-            imagesetpixel($image, $dotX, $dotY, $dotColor);
+            $shapeType = rand(0, 2);
+            switch ($shapeType) {
+                case 0:  // Pixel
+                    imagesetpixel($this->image, $x, $y, $color);
+                    break;
+                case 1:  // Tiny line
+                    imageline($this->image, $x, $y, $x + rand(-1, 1), $y + rand(-1, 1), $color);
+                    break;
+                case 2:  // Tiny rectangle
+                    imagefilledrectangle($this->image, $x, $y, $x + 1, $y + 1, $color);
+                    break;
+            }
         }
     }
-}
 
-// Enhanced applyAdvancedTextDistortion function
-function applyTextDistortion($image, $x, $y, $word, $fontSize, $font, $color) {
-    $chars = str_split($word);
-    $currentX = $x;
-    $totalWidth = 0;
-    $charData = [];
-    $possibleFonts = [__DIR__ . '/Arial.ttf', __DIR__ . '/Verdana.ttf', __DIR__ . '/Tahoma.ttf'];
-    $minSize = $fontSize - 2;
-    $maxSize = $fontSize + 3;
+    /**
+     * Draw wavy lines in the background
+     *
+     * @return void
+     */
+    private function drawWavyLines()
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $startColorIndex = imagecolorallocatealpha(
+                $this->image,
+                rand(80, 180),
+                rand(80, 180),
+                rand(80, 180),
+                rand(40, 70)
+            );
+            $endColorIndex = imagecolorallocatealpha(
+                $this->image,
+                rand(120, 220),
+                rand(120, 220),
+                rand(120, 220),
+                rand(60, 90)
+            );
 
-    // First pass: Calculate original positions and dimensions
-    foreach ($chars as $char) {
-        $charFont = $possibleFonts[array_rand($possibleFonts)];
-        if (!file_exists($charFont)) {
-            $charFont = $font;
+            $amplitudeY = rand(8, 18);
+            $frequencyX = rand(5, 12) / 100;
+            $phaseY = rand(0, 314) / 100;
+            $startY = rand(0, $this->config['imageHeight']);
+            $offsetY = rand(-10, 10);
+
+            $prevX = 0;
+            $prevY = $startY + $offsetY;
+
+            for ($x = 0; $x < $this->config['imageWidth']; $x += 2) {
+                $y = $startY + $offsetY + $amplitudeY * sin($frequencyX * $x + $phaseY);
+
+                $ratio = $x / $this->config['imageWidth'];
+                $startColor = imagecolorsforindex($this->image, $startColorIndex);
+                $endColor = imagecolorsforindex($this->image, $endColorIndex);
+
+                $r = (int) ($startColor['red'] + ($endColor['red'] - $startColor['red']) * $ratio);
+                $g = (int) ($startColor['green'] + ($endColor['green'] - $startColor['green']) * $ratio);
+                $b = (int) ($startColor['blue'] + ($endColor['blue'] - $startColor['blue']) * $ratio);
+                $a = (int) ($startColor['alpha'] + ($endColor['alpha'] - $startColor['alpha']) * $ratio);
+
+                $color = imagecolorallocatealpha($this->image, $r, $g, $b, $a);
+
+                if ($x > 0) {
+                    imageline($this->image, (int)$prevX, (int)$prevY, (int)$x, (int)$y, $color);
+                }
+                $prevX = $x;
+                $prevY = $y;
+            }
         }
-        $charSize = rand($minSize, $maxSize);
-        $angle = rand(-10, 10);
-        $box = imagettfbbox($charSize, $angle, $charFont, $char);
-        $charWidth = abs($box[4] - $box[0]);
-        $charHeight = abs($box[5] - $box[1]);
-        $charData[] = [
-            'char' => $char,
-            'font' => $charFont,
-            'size' => $charSize,
-            'angle' => $angle,
-            'width' => $charWidth,
-            'height' => $charHeight,
-            'originalX' => $currentX,
-            'originalY' => $y + rand(-2, 2) // Initial vertical variation
+    }
+
+    /**
+     * Add random characters to the background
+     *
+     * @return void
+     */
+    private function addRandomCharacters()
+    {
+        $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~!@#$%^&*()_+=-`[]{};\':",./<>?';
+        $charactersLength = strlen($characters);
+        $minSize = 8;
+        $maxSize = 16;
+
+        for ($i = 0; $i < 25; $i++) {
+            $color = imagecolorallocatealpha(
+                $this->image,
+                rand(100, 220),
+                rand(100, 220),
+                rand(100, 220),
+                rand(50, 100)
+            );
+
+            $x = rand(0, $this->config['imageWidth']);
+            $y = rand(0, $this->config['imageHeight']);
+            $size = rand($minSize, $maxSize);
+            $angle = rand(-45, 45);
+
+            $char = $characters[rand(0, $charactersLength - 1)];
+
+            imagettftext($this->image, $size, $angle, $x, $y, $color, $this->config['font'], $char);
+
+            for ($j = 0; $j < rand(1, 3); $j++) {
+                $dotColor = imagecolorallocate($this->image, rand(100, 200), rand(100, 200), rand(100, 200));
+                $dotX = $x + rand(-5, 5);
+                $dotY = $y + rand(-5, 5);
+                imagesetpixel($this->image, $dotX, $dotY, $dotColor);
+            }
+        }
+    }
+
+    /**
+     * Create word-shape combinations and place them on the image
+     *
+     * @return void
+     */
+    private function createWordShapeCombinations()
+    {
+        shuffle($this->config['words']);
+        $selectedWords = array_slice($this->config['words'], 0, min(count($this->config['words']), ceil($this->config['numShapes'] / 2)));
+
+        $wordShapeCombinations = [];
+        foreach ($selectedWords as $word) {
+            foreach ($this->config['shapeTypes'] as $shape) {
+                $wordShapeCombinations[] = ['word' => $word, 'shape' => $shape];
+            }
+        }
+
+        shuffle($wordShapeCombinations);
+        $displayCombinations = array_slice($wordShapeCombinations, 0, $this->config['numShapes']);
+
+        $positions = [];
+        $this->allObjects = [];
+
+        foreach ($displayCombinations as $combination) {
+            $word = $combination['word'];
+            $shapeType = $combination['shape'];
+
+            $textDim = $this->getTextDimensions($word, $this->config['fontSize'], $this->config['font']);
+
+            $attempts = 0;
+            $maxAttempts = 50;
+            do {
+                $x = rand(30, $this->config['imageWidth'] - $textDim['width'] - 30);
+                $y = rand(30 + $this->config['fontSize'], $this->config['imageHeight'] - 30);
+                $position = [
+                    'x' => $x,
+                    'y' => $y,
+                    'width' => $textDim['width'],
+                    'height' => $textDim['height']
+                ];
+                $attempts++;
+            } while ($attempts < $maxAttempts && $this->positionsOverlap($positions, $position, $this->config['spaceBetweenObjects']));
+
+            if ($attempts >= $maxAttempts) {
+                continue;
+            }
+
+            $colorVal = $this->config['shapeColors'][array_rand($this->config['shapeColors'])];
+            $color = imagecolorallocate($this->image,
+                ($colorVal >> 16) & 0xFF,
+                ($colorVal >> 8) & 0xFF,
+                $colorVal & 0xFF);
+
+            $textColor = imagecolorallocate($this->image, 0, 0, 0);
+            $textDimensions = $this->applyTextDistortion($this->image, $x, $y, $word, $this->config['fontSize'], $this->config['font'], $textColor);
+
+            $shapeBounds = null;
+            if ($shapeType === 'circle') {
+                $shapeBounds = $this->drawCircle($this->image, $x, $y - $textDim['height'], $textDimensions['width'], $textDim['height'], $color);
+            } elseif ($shapeType === 'star') {
+                $shapeBounds = $this->drawStar($this->image, $x, $y - $textDim['height'], $textDimensions['width'], $textDim['height'], $color);
+            } else {
+                $shapeBounds = $this->drawSquare($this->image, $x, $y - $textDim['height'], $textDimensions['width'], $textDim['height'], $color);
+            }
+
+            $positions[] = [
+                'x' => $x,
+                'y' => $y,
+                'width' => $textDim['width'],
+                'height' => $textDim['height']
+            ];
+
+            $this->allObjects[] = [
+                'word' => $word,
+                'shape' => $shapeType,
+                'bounds' => $shapeBounds,
+                'textX' => $x,
+                'textY' => $y,
+                'textWidth' => $textDim['width'],
+                'textHeight' => $textDim['height']
+            ];
+        }
+
+        $targetIndex = array_rand($this->allObjects);
+        $this->targetObject = $this->allObjects[$targetIndex];
+
+        $_SESSION['captcha_target'] = $this->targetObject;
+        $_SESSION['captcha_objects'] = $this->allObjects;
+    }
+
+    /**
+     * Add instruction text to the image
+     *
+     * @return void
+     */
+    private function addInstructionText()
+    {
+        $instructionType = rand(0, 2);
+        switch ($instructionType) {
+            case 0:
+                $this->instructionText = "Click on the word starting with '" . strtoupper(substr($this->targetObject['word'], 0, 1)) . "'";
+                break;
+            case 1:
+                $this->instructionText = "Click on the word ending with '" . strtolower(substr($this->targetObject['word'], -1)) . "'";
+                break;
+            case 2:
+                $wordLength = strlen($this->targetObject['word']);
+                $this->instructionText = 'Click on the word with ' . $wordLength . ' letters';
+                break;
+        }
+        $this->instructionText .= ' in a ' . $this->targetObject['shape'];
+
+        $instructionColor = imagecolorallocate($this->image, 0, 0, 0);
+        imagettftext($this->image, 16, 0, 20, 30, $instructionColor, $this->config['font'], $this->instructionText);
+    }
+
+    /**
+     * Add footer text to the image
+     *
+     * @return void
+     */
+    private function addFooterText()
+    {
+        $footerColor = imagecolorallocate($this->image, 0, 0, 0);
+        $footerFontSize = 14;
+        $footerX = 20;
+        $footerY = $this->config['imageHeight'] - 20;
+        imagettftext($this->image, $footerFontSize, 0, $footerX, $footerY, $footerColor, $this->config['font'], $this->config['footerText']);
+    }
+
+    /**
+     * Get text dimensions
+     *
+     * @param string $text The text to measure
+     * @param int $fontSize The font size
+     * @param string $font The font file path
+     * @return array Width and height of the text
+     */
+    private function getTextDimensions($text, $fontSize, $font)
+    {
+        $box = imagettfbbox($fontSize, 0, $font, $text);
+        $width = abs($box[4] - $box[0]);
+        $height = abs($box[5] - $box[1]);
+        return ['width' => $width, 'height' => $height];
+    }
+
+    /**
+     * Check if positions overlap
+     *
+     * @param array $positions Existing positions
+     * @param array $newPos New position to check
+     * @param int $margin Margin to add around positions
+     * @return bool True if positions overlap
+     */
+    private function positionsOverlap($positions, $newPos, $margin = 20)
+    {
+        foreach ($positions as $pos) {
+            if (
+                $newPos['x'] < $pos['x'] + $pos['width'] + $margin &&
+                $newPos['x'] + $newPos['width'] + $margin > $pos['x'] &&
+                $newPos['y'] < $pos['y'] + $pos['height'] + $margin &&
+                $newPos['y'] + $newPos['height'] + $margin > $pos['y']
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Draw a circle around text
+     *
+     * @param resource $image The image resource
+     * @param int $x X coordinate
+     * @param int $y Y coordinate
+     * @param int $width Width of the text
+     * @param int $height Height of the text
+     * @param int $color Colour resource
+     * @return array Bounds of the circle
+     */
+    private function drawCircle($image, $x, $y, $width, $height, $color)
+    {
+        $centerX = (int)($x + $width / 2);
+        $centerY = (int)($y + $height / 2);
+        $radius = (int)(max($width, $height) / 2 + 10);
+        imageellipse($image, $centerX, $centerY, (int)($radius * 2), (int)($radius * 2), $color);
+        return [
+            'x' => $centerX - $radius,
+            'y' => $centerY - $radius,
+            'width' => $radius * 2,
+            'height' => $radius * 2
         ];
-        $currentX += $charWidth + rand(-2, 3);
-        $totalWidth = $currentX - $x;
     }
 
-    // Apply distortion based on total width and character positions
-    $amplitudeY = rand(2, 4);
-    $periodX = rand(10, 20);
-    $phaseY = rand(0, 314) / 100;
-
-    $distortedBounds = [
-        'x' => $x,
-        'y' => $y - $fontSize,
-        'width' => $totalWidth,
-        'height' => 0 // Will be updated
-    ];
-    $maxHeight = 0;
-
-    // Second pass: Draw with distortion
-    foreach ($charData as $data) {
-        $offsetY = $amplitudeY * sin(2 * M_PI * $data['originalX'] / $periodX + $phaseY);
-        $finalY = $data['originalY'] + $offsetY;
-
-        imagettftext(
-            $image,
-            $data['size'],
-            $data['angle'],
-            $data['originalX'],
-            $finalY,
-            $color,
-            $data['font'],
-            $data['char']
-        );
-
-        $distortedBounds['y'] = min($distortedBounds['y'], $finalY - $data['size']);
-        $maxHeight = max($maxHeight, $finalY - $distortedBounds['y']);
+    /**
+     * Draw a square around text
+     *
+     * @param resource $image The image resource
+     * @param int $x X coordinate
+     * @param int $y Y coordinate
+     * @param int $width Width of the text
+     * @param int $height Height of the text
+     * @param int $color Colour resource
+     * @return array Bounds of the square
+     */
+    private function drawSquare($image, $x, $y, $width, $height, $color)
+    {
+        $size = max($width, $height) + 20;
+        $startX = (int)($x + $width / 2 - $size / 2);
+        $startY = (int)($y + $height / 2 - $size / 2);
+        imagerectangle($image, $startX, $startY, (int)($startX + $size), (int)($startY + $size), $color);
+        return [
+            'x' => $startX,
+            'y' => $startY,
+            'width' => $size,
+            'height' => $size
+        ];
     }
 
-    $distortedBounds['height'] = $maxHeight * 1.2; // Add some padding
+    /**
+     * Draw a star around text
+     *
+     * @param resource $image The image resource
+     * @param int $x X coordinate
+     * @param int $y Y coordinate
+     * @param int $width Width of the text
+     * @param int $height Height of the text
+     * @param int $color Colour resource
+     * @return array Bounds of the star
+     */
+    private function drawStar($image, $x, $y, $width, $height, $color)
+    {
+        $size = max($width, $height) + 20;
+        $centerX = $x + $width / 2;
+        $centerY = $y + $height / 2;
+        $radiusOuter = $size / 2;
+        $radiusInner = $radiusOuter * 0.5;
+        $points = [];
+        $numPoints = 10;
 
-    return $distortedBounds;
-}
-
-// Create word-shape combinations with duplicates
-$wordShapeCombinations = [];
-$numShapes = 5; // Total number of shapes/words to display
-
-// Shuffle words first
-shuffle($words);
-$selectedWords = array_slice($words, 0, min(count($words), ceil($numShapes/2)));
-
-// Create duplicate entries with different shapes
-foreach ($selectedWords as $word) {
-    // Add this word in both shapes (circle and square)
-    $wordShapeCombinations[] = ['word' => $word, 'shape' => 'circle'];
-    $wordShapeCombinations[] = ['word' => $word, 'shape' => 'square'];
-    $wordShapeCombinations[] = ['word' => $word, 'shape' => 'star'];
-}
-
-// Shuffle the combinations and pick the first $numShapes
-shuffle($wordShapeCombinations);
-$displayCombinations = array_slice($wordShapeCombinations, 0, $numShapes);
-
-// Function to get text dimensions
-function getTextDimensions($text, $fontSize, $font) {
-    $box = imagettfbbox($fontSize, 0, $font, $text);
-    $width = abs($box[4] - $box[0]);
-    $height = abs($box[5] - $box[1]);
-    return ['width' => $width, 'height' => $height];
-}
-
-// Function to check if positions overlap
-function positionsOverlap($positions, $newPos, $margin = 20) {
-    foreach ($positions as $pos) {
-        if (
-            $newPos['x'] < $pos['x'] + $pos['width'] + $margin && 
-            $newPos['x'] + $newPos['width'] + $margin > $pos['x'] && 
-            $newPos['y'] < $pos['y'] + $pos['height'] + $margin && 
-            $newPos['y'] + $newPos['height'] + $margin > $pos['y']
-        ) {
-            return true;
+        for ($i = 0; $i < $numPoints; $i++) {
+            $angle = deg2rad(36 * $i);
+            $radius = ($i % 2 === 0) ? $radiusOuter : $radiusInner;
+            $points[] = (int)($centerX + $radius * cos($angle));
+            $points[] = (int)($centerY + $radius * sin($angle));
         }
-    }
-    return false;
-}
 
-// Function to draw a circle around text
-function drawCircle($image, $x, $y, $width, $height, $color) {
-    $centerX = $x + $width / 2;
-    $centerY = $y + $height / 2;
-    $radius = max($width, $height) / 2 + 10; // Add some padding
-    imageellipse($image, $centerX, $centerY, $radius * 2, $radius * 2, $color);
-    return [
-        'x' => $centerX - $radius,
-        'y' => $centerY - $radius,
-        'width' => $radius * 2,
-        'height' => $radius * 2
-    ];
-}
+        imagepolygon($image, $points, $color);
 
-// Function to draw a square around text
-function drawSquare($image, $x, $y, $width, $height, $color) {
-    $size = max($width, $height) + 20; // Add some padding
-    $startX = $x + $width/2 - $size/2;
-    $startY = $y + $height/2 - $size/2;
-    imagerectangle($image, $startX, $startY, $startX + $size, $startY + $size, $color);
-    return [
-        'x' => $startX,
-        'y' => $startY,
-        'width' => $size,
-        'height' => $size
-    ];
-}
-
-function drawStar($image, $x, $y, $width, $height, $color) {
-    $size = max($width, $height) + 20; // Add some padding
-    $centerX = $x + $width / 2;
-    $centerY = $y + $height / 2;
-    $radiusOuter = $size / 2;
-    $radiusInner = $radiusOuter * 0.5; // Inner radius for the star points
-    $points = [];
-    $numPoints = 10; // 5 outer points and 5 inner points
-
-    for ($i = 0; $i < $numPoints; $i++) {
-        $angle = deg2rad(36 * $i); // 360 degrees divided by 10 points
-        $radius = ($i % 2 === 0) ? $radiusOuter : $radiusInner;
-        $points[] = $centerX + $radius * cos($angle);
-        $points[] = $centerY + $radius * sin($angle);
+        return [
+            'x' => $centerX - $radiusOuter,
+            'y' => $centerY - $radiusOuter,
+            'width' => $radiusOuter * 2,
+            'height' => $radiusOuter * 2
+        ];
     }
 
-    imagepolygon($image, $points, $numPoints, $color); // Use imagepolygon for outline only
+    /**
+     * Apply text distortion
+     *
+     * @param resource $image The image resource
+     * @param int $x X coordinate
+     * @param int $y Y coordinate
+     * @param string $word The word to draw
+     * @param int $fontSize The font size
+     * @param string $font The font file path
+     * @param int $color Colour resource
+     * @return array Bounds of the distorted text
+     */
+    private function applyTextDistortion($image, $x, $y, $word, $fontSize, $font, $color)
+    {
+        $chars = str_split($word);
+        $currentX = $x;
+        $totalWidth = 0;
+        $charData = [];
+        $minSize = $fontSize - 2;
+        $maxSize = $fontSize + 3;
 
-    return [
-        'x' => $centerX - $radiusOuter,
-        'y' => $centerY - $radiusOuter,
-        'width' => $radiusOuter * 2,
-        'height' => $radiusOuter * 2
-    ];
-}
+        foreach ($chars as $char) {
+            $charSize = rand($minSize, $maxSize);
+            $angle = rand(-10, 10);
+            $box = imagettfbbox($charSize, $angle, $font, $char);
+            $charWidth = abs($box[4] - $box[0]);
+            $charHeight = abs($box[5] - $box[1]);
+            $charData[] = [
+                'char' => $char,
+                'size' => $charSize,
+                'angle' => $angle,
+                'width' => $charWidth,
+                'height' => $charHeight,
+                'originalX' => $currentX,
+                'originalY' => $y + rand(-2, 2)
+            ];
+            $currentX += $charWidth + rand(-2, 3);
+            $totalWidth = $currentX - $x;
+        }
 
-// Apply background effects before drawing the words
-drawRandomGeometricShapes($image, $imageWidth, $imageHeight);
-addDotsAndSpeckles($image, $imageWidth, $imageHeight);
-drawWavyLines($image, $imageWidth, $imageHeight);
-addRandomCharacters($image, $imageWidth, $imageHeight, $font);
+        $amplitudeY = rand(2, 4);
+        $periodX = rand(10, 20);
+        $phaseY = rand(0, 314) / 100;
 
-// Add smaller words and objects to confuse bots
-function addSmallerWordsAndObjects($image, $width, $height, $font, $fontSize, $count = 10) {
-    $extraWords = ['Cat', 'Dog', 'Sun', 'Moon', 'Star', 'Tree', 'Fish', 'Bird', 'Car', 'Boat'];
-    for ($i = 0; $i < $count; $i++) {
-        $color = imagecolorallocate(
-            $image, 
-            rand(100, 200), 
-            rand(100, 200), 
-            rand(100, 200)
-        );
-        $x = rand(20, $width - 20);
-        $y = rand(20, $height - 20);
-        $size = rand(8, 14);
-        $angle = rand(-30, 30);
-        $word = $extraWords[array_rand($extraWords)];
-        imagettftext($image, $size, $angle, $x, $y, $color, $font, $word);
-    }
-}
-
-// Call the function to add smaller words and objects
-addSmallerWordsAndObjects($image, $imageWidth, $imageHeight, $font, $fontSize);
-
-// Place words with shapes on the image
-$positions = [];
-$wordObjects = [];
-
-foreach ($displayCombinations as $combination) {
-    $word = $combination['word'];
-    $shapeType = $combination['shape'];
-
-    // Get text dimensions
-    $textDim = getTextDimensions($word, $fontSize, $font);
-
-    // Find a non-overlapping position
-    $attempts = 0;
-    $maxAttempts = 50;
-    do {
-        $x = rand(30, $imageWidth - $textDim['width'] - 30);
-        $y = rand(30 + $fontSize, $imageHeight - 30);
-        $position = [
+        $distortedBounds = [
             'x' => $x,
-            'y' => $y,
-            'width' => $textDim['width'],
-            'height' => $textDim['height']
+            'y' => $y - $fontSize,
+            'width' => $totalWidth,
+            'height' => 0
         ];
-        $attempts++;
-    } while ($attempts < $maxAttempts && positionsOverlap($positions, $position));
+        $maxHeight = 0;
 
-    if ($attempts >= $maxAttempts) {
-        continue; // Skip this word if we can't find a good position
+        foreach ($charData as $data) {
+            $offsetY = $amplitudeY * sin(2 * M_PI * $data['originalX'] / $periodX + $phaseY);
+            $finalY = $data['originalY'] + $offsetY;
+
+            imagettftext(
+                $image,
+                $data['size'],
+                $data['angle'],
+                (int)$data['originalX'],
+                (int)$finalY,
+                $color,
+                $font,
+                $data['char']
+            );
+
+            $distortedBounds['y'] = min($distortedBounds['y'], $finalY - $data['size']);
+            $maxHeight = max($maxHeight, $finalY - $distortedBounds['y']);
+        }
+
+        $distortedBounds['height'] = $maxHeight * 1.2;
+
+        return $distortedBounds;
     }
 
-    // Choose a random color for the shape
-    $colorVal = $shapeColors[array_rand($shapeColors)];
-    $color = imagecolorallocate($image, 
-        ($colorVal >> 16) & 0xFF,
-        ($colorVal >> 8) & 0xFF,
-        $colorVal & 0xFF
-    );
-
-    // Draw the text with distortion instead of simple text rendering
-    $textColor = imagecolorallocate($image, 0, 0, 0);
-    $textDimensions = applyTextDistortion($image, $x, $y, $word, $fontSize, $font, $textColor);
-
-    // Draw the shape around the text
-    $shapeBounds = null;
-    if ($shapeType === 'circle') {
-        $shapeBounds = drawCircle($image, $x, $y - $textDim['height'], $textDimensions['width'], $textDim['height'], $color);
-    } elseif ($shapeType === 'star') {
-        $shapeBounds = drawStar($image, $x, $y - $textDim['height'], $textDimensions['width'], $textDim['height'], $color);
-    } else { // square
-        $shapeBounds = drawSquare($image, $x, $y - $textDim['height'], $textDimensions['width'], $textDim['height'], $color);
+    /**
+     * Helper function to clamp a value within a range
+     *
+     * @param int $value The value to clamp
+     * @param int $min Minimum value
+     * @param int $max Maximum value
+     * @return int Clamped value
+     */
+    private function clamp($value, $min, $max)
+    {
+        return max($min, min($max, $value));
     }
 
-    // Store the position
-    $positions[] = [
-        'x' => $x,
-        'y' => $y,
-        'width' => $textDim['width'],
-        'height' => $textDim['height']
-    ];
+    /**
+     * Output the image as PNG
+     *
+     * @return void
+     */
+    public function outputPng()
+    {
+        header('Content-Type: image/png');
+        imagepng($this->image);
+        imagedestroy($this->image);
+    }
 
-    // Store the word object
-    $wordObjects[] = [
-        'word' => $word,
-        'shape' => $shapeType,
-        'bounds' => $shapeBounds,
-        'textX' => $x,
-        'textY' => $y,
-        'textWidth' => $textDim['width'],
-        'textHeight' => $textDim['height']
-    ];
+    /**
+     * Get the image as a base64 encoded string
+     *
+     * @return string Base64 encoded image
+     */
+    public function getBase64Src()
+    {
+        // Check if image resource is valid
+        if (!is_resource($this->image) && !($this->image instanceof \GdImage)) {
+            // If image is not valid, regenerate it
+            $this->generate();
+        }
+        
+        ob_start();
+        imagepng($this->image);
+        $imageData = ob_get_clean();
+        imagedestroy($this->image);
+        $this->image = null; // Set to null after destroying to prevent reuse
+        return 'data:image/png;base64,' . base64_encode($imageData);
+    }
+
+    /**
+     * Get the instruction text
+     *
+     * @return string The instruction text
+     */
+    public function getInstructionText()
+    {
+        return $this->instructionText;
+    }
+
+    /**
+     * Get the target object
+     *
+     * @return array The target object
+     */
+    public function getTargetObject()
+    {
+        return $this->targetObject;
+    }
+
+    /**
+     * Get all objects
+     *
+     * @return array All objects
+     */
+    public function getAllObjects()
+    {
+        return $this->allObjects;
+    }
 }
-
-// Select a random word object as the target
-$targetIndex = array_rand($wordObjects);
-$targetObject = $wordObjects[$targetIndex];
-
-// Store the target and all objects in the session
-$_SESSION['captcha_target'] = $targetObject;
-$_SESSION['captcha_objects'] = $wordObjects;
-
-// Create instruction text
-$instructionType = rand(0, 2);
-switch ($instructionType) {
-    case 0:
-        $instructionText = "Click on the word starting with '" . strtoupper(substr($targetObject['word'], 0, 1)) . "'";
-        break;
-    case 1:
-        $instructionText = "Click on the word ending with '" . strtolower(substr($targetObject['word'], -1)) . "'";
-        break;
-    case 2:
-        $wordLength = strlen($targetObject['word']);
-        $instructionText = "Click on the word with " . $wordLength . " letters";
-        break;
-}
-$instructionText .= " in a " . $targetObject['shape'];
-$instructionColor = imagecolorallocate($image, 0, 0, 0);
-imagettftext($image, 16, 0, 20, 30, $instructionColor, $font, $instructionText);
-
-// Add text at the bottom of the image to inform the user
-$footerText = "http://www.example.com/captcha";
-$footerColor = imagecolorallocate($image, 0, 0, 0);
-$footerFontSize = 14;
-$footerX = 20;
-$footerY = $imageHeight - 20;
-imagettftext($image, $footerFontSize, 0, $footerX, $footerY, $footerColor, $font, $footerText);
-
-// Output the image
-header('Content-Type: image/png');
-imagepng($image);
-imagedestroy($image);
 ?>

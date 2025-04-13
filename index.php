@@ -1,4 +1,13 @@
 <?php session_start(); ?>
+<?php 
+include 'captcha.php';
+
+$captcha = new Captcha();
+$captcha->create(500, 250, '0xFFFFFF', 6, 40, 15, 'http://www.mywebsite.com/login/');
+$base64Src = $captcha->getBase64Src();
+
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -37,7 +46,7 @@
     
     <div class="captcha-container">
         <form action="validate.php" method="POST">
-            <input type="image" src="captcha.php" alt="CAPTCHA Image" name="captcha_click" class="captcha-image">
+            <input type="image" src="<?= $base64Src; ?>" alt="CAPTCHA Image" name="captcha_click" class="captcha-image">
         </form>
     </div>
     <?php if (isset($_GET['error'])): ?>
